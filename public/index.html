@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Log Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f9fc; margin: 20px; }
+    h1 { text-align: center; color: #333; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+    th { background: #e8e8e8; }
+    tr:hover { background: #f0f0f0; }
+    .info { color: #1976d2; }
+    .error { color: #d32f2f; }
+    .warning { color: #f9a825; }
+  </style>
+</head>
+<body>
+  <h1>📜 Log Yönetim Sistemi</h1>
+  <button onclick="fetchLogs()">🔄 Yenile</button>
+  <table id="logTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Message</th>
+        <th>Level</th>
+        <th>Timestamp</th>
+        <th>URL</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    async function fetchLogs() {
+      const res = await fetch('/logs');
+      const data = await res.json();
+      const tbody = document.querySelector('#logTable tbody');
+      tbody.innerHTML = '';
+
+      data.forEach(log => {
+        const row = document.createElement('tr');
+        const levelClass = log.level.toLowerCase();
+
+        row.innerHTML = `
+          <td>${log.id}</td>
+          <td>${log.message}</td>
+          <td class="${levelClass}">${log.level.toUpperCase()}</td>
+          <td>${log.timestamp}</td>
+          <td><a href="${log.url}" target="_blank">Görüntüle</a></td>
+        `;
+
+        tbody.appendChild(row);
+      });
+    }
+
+    fetchLogs();
+  </script>
+</body>
+</html>
