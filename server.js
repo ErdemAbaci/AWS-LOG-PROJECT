@@ -6,6 +6,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
+const { CloudWatchLogsClient, GetLogEventsCommand, DescribeLogStreamsCommand } = require("@aws-sdk/client-cloudwatch-logs");
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
@@ -29,6 +30,15 @@ const ddbClient = new DynamoDBClient({
   }
 });
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
+
+// CloudWatch client oluştur
+const cloudWatchClient = new CloudWatchLogsClient({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
 
 //
 // 📘 1. LOG EKLEME ENDPOINTİ
@@ -145,6 +155,51 @@ app.get("/logs", async (req, res) => {
   }
 });
 
+//
+// ☁️ CLOUDWATCH LOG LİSTELEME ENDPOINTİ
+//
+app.get("/cloudwatch-logs", async (req, res) => {
+  // DİKKAT: Buradaki adı kendi Lambda fonksiyonunuzun log grubu adıyla değiştirin.
+  const logGroupName = "/aws/lambda/cloudlog-s3-to-ddb"; 
+
+  try {
+    const describeStreamsCommand = new DescribeLogStreamsCommand({
+      logGroupName,
+      orderBy: 'LastEventTime',
+      descending: true,
+      limit: 1
+    });
+    
+    const streamsResponse = await cloudWatchClient.send(describeStreamsCommand);
+    
+    // Eğer hiç log stream'i yoksa boş bir dizi döndür.
+    if (!streamsResponse.logStreams || streamsResponse.logStreams.length === 0) {
+      return res.json([]);
+    }
+
+    const latestStream = streamsResponse.logStreams[0];
+
+    const getLogsCommand = new GetLogEventsCommand({
+      logGroupName,
+      logStreamName: latestStream.logStreamName,
+      startFromHead: false, // En sondan başla
+      limit: 50 // Son 50 logu getir
+    });
+
+    const logs = await cloudWatchClient.send(getLogsCommand);
+
+    res.json(logs.events.map(event => ({
+      timestamp: event.timestamp,
+      message: event.message,
+      id: event.eventId
+    })).reverse()); // Logları eskiden yeniye sırala
+
+  } catch (error) {
+    console.error("CloudWatch logs error:", error);
+    // Frontend'e daha anlaşılır bir hata gönder
+    res.status(500).json({ message: "Error fetching CloudWatch logs", error: error.name });
+  }
+});
 
 //
 // 🚀 SUNUCU BAŞLAT

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import LogsTable from "./components/LogsTable";
 import LogsChart from "./components/LogsChart";
+import CloudWatchLogs from "./components/CloudWatchLogs";
 import './App.css';
 
 function App() {
@@ -9,8 +10,15 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLogs();
-  }, []);
+  fetchLogs(); // Sayfa açılır açılmaz logs çek
+
+  // Her 5 saniyede bir otomatik güncelle
+  const interval = setInterval(fetchLogs, 5000);
+
+  // Component kapandığında interval'i temizle
+  return () => clearInterval(interval);
+}, []);
+
 
   const fetchLogs = async () => {
     try {
@@ -30,6 +38,7 @@ function App() {
         <p>Loading logs...</p>
       ) : (
         <>
+          <CloudWatchLogs />
           <LogsChart logs={logs} />
           <LogsTable logs={logs} />
         </>
