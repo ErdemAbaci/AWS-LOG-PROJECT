@@ -22,7 +22,8 @@ function App() {
 
   const fetchLogs = async () => {
     try {
-      const res = await axios.get("http://localhost:3000/logs"); // Backend endpoint
+      const res = await axios.get("https://logswithaws.onrender.com/logs");
+ // Backend endpoint
       setLogs(res.data);
       setLoading(false);
     } catch (err) {
