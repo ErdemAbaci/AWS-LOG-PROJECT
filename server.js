@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
 const { CloudWatchLogsClient, GetLogEventsCommand, DescribeLogStreamsCommand } = require("@aws-sdk/client-cloudwatch-logs");
 const app = express();
+const geoip = require('geoip-lite');
 app.use(express.json());
 app.use(express.static('public'));
 app.use(cors());
@@ -44,46 +45,65 @@ const cloudWatchClient = new CloudWatchLogsClient({
 // 📘 1. LOG EKLEME ENDPOINTİ
 //
 app.post("/log", async (req, res) => {
-  const { message, level } = req.body;
+    const { message, level } = req.body;
 
-  if (!message) return res.status(400).send('Message is missing');
-
-  // Otomatik meta veriler
-  const logData = {
-    id: uuidv4(),
-    message,
-    level: level || "info", // varsayılan: info
-    ip: req.ip,
-    userAgent: req.headers['user-agent'],
-    timestamp: new Date().toISOString(),
-    location: "Unknown" // ileride GeoIP servisi ekleyeceğiz
-  };
-
-  // S3’e kayıt
-  const key = `logs/${logData.id}.txt`;
-  const s3Params = {
-    Bucket: process.env.S3_BUCKET_NAME,
-    Key: key,
-    Body: JSON.stringify(logData, null, 2)
-  };
-
-  // DynamoDB’ye kayıt
-  const ddbParams = {
-    TableName: "Logs",
-    Item: {
-      ...logData,
-      s3Key: key
+    if (!message) {
+        return res.status(400).send('Message is missing');
     }
-  };
 
-  try {
-    await s3.send(new PutObjectCommand(s3Params));
-    await ddbDocClient.send(new PutCommand(ddbParams));
-    res.send('✅ Log uploaded to S3 and saved in DynamoDB');
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('❌ Error uploading log');
-  }
+    // --- GEOIP Entegrasyonu ---
+    const ip = req.ip;
+    const geo = geoip.lookup(ip); // IP adresinden konum bilgisi al
+
+    // Konum bilgisini daha yapısal hale getirelim
+    const locationData = geo ? {
+        country: geo.country,
+        region: geo.region,
+        city: geo.city,
+        timezone: geo.timezone
+    } : {
+        country: "N/A",
+        city: "Local or Private IP", // localhost (::1 veya 127.0.0.1) veya özel ağlar için
+    };
+    // --- Bitiş ---
+
+    // Otomatik meta verilerle log objesini oluştur
+    const logData = {
+        id: uuidv4(),
+        message,
+        level: level || "info",
+        ip: ip,
+        userAgent: req.headers['user-agent'],
+        timestamp: new Date().toISOString(),
+        location: locationData // Eski "Unknown" yerine yeni konum objesi eklendi
+    };
+
+    // S3’e kayıt için anahtar oluştur
+    const key = `logs/${logData.id}.json`; // Dosya uzantısını .json yapmak daha mantıklı
+    const s3Params = {
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: key,
+        Body: JSON.stringify(logData, null, 2),
+        ContentType: "application/json" // İçerik tipini belirtmek iyi bir pratiktir
+    };
+
+    // DynamoDB’ye kayıt
+    const ddbParams = {
+        TableName: "Logs",
+        Item: {
+            ...logData,
+            s3Key: key
+        }
+    };
+
+    try {
+        await s3.send(new PutObjectCommand(s3Params));
+        await ddbDocClient.send(new PutCommand(ddbParams));
+        res.status(201).json({ status: 'success', logId: logData.id });
+    } catch (err) {
+        console.error("❌ Error uploading log:", err);
+        res.status(500).send('❌ Error uploading log');
+    }
 });
 
 //
