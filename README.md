@@ -2,7 +2,7 @@
 
 Modern, gerçek zamanlı ve bulut tabanlı bir log takip sistemi. AWS servisleri (S3, DynamoDB, CloudWatch) ile entegre çalışır ve logları estetik bir dashboard üzerinden sunar.
 
-![Project Preview](https://via.placeholder.com/1200x600/0f172a/06b6d4?text=AWS+Log+Tracker+Dashboard)
+
 
 ## 🌟 Özellikler
 
