@@ -7,9 +7,33 @@ const api = axios.create({
     },
 });
 
-export const getLogs = async (params = {}) => {
+export interface LogParams {
+    level?: string;
+    ip?: string;
+    search?: string;
+}
+
+export interface LocationData {
+    country: string;
+    region: string;
+    city: string;
+    timezone: string;
+}
+
+export interface LogData {
+    id: string;
+    message: string;
+    level: string;
+    ip: string;
+    userAgent?: string;
+    timestamp: string;
+    location: LocationData;
+    s3Url?: string | null;
+}
+
+export const getLogs = async (params: LogParams = {}): Promise<LogData[]> => {
     try {
-        const response = await api.get('/logs', { params });
+        const response = await api.get<LogData[]>('/logs', { params });
         return response.data;
     } catch (error) {
         console.error("Error fetching logs:", error);
@@ -17,7 +41,7 @@ export const getLogs = async (params = {}) => {
     }
 };
 
-export const createLog = async (logData) => {
+export const createLog = async (logData: Partial<LogData>): Promise<{ status: string; logId: string }> => {
     try {
         const response = await api.post('/log', logData);
         return response.data;
@@ -27,7 +51,7 @@ export const createLog = async (logData) => {
     }
 };
 
-export const getCloudWatchLogs = async () => {
+export const getCloudWatchLogs = async (): Promise<any[]> => {
     try {
         const response = await api.get('/cloudwatch-logs');
         return response.data;

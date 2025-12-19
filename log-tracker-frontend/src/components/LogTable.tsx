@@ -2,8 +2,9 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileStack, Terminal, MapPin, Calendar, AlertCircle, Info, AlertTriangle, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
+import { LogData } from '../services/api';
 
-const LogIcon = ({ level }) => {
+const LogIcon = ({ level }: { level: string }) => {
     switch (level?.toLowerCase()) {
         case 'error': return <AlertCircle className="text-red-400" size={18} />;
         case 'warn': return <AlertTriangle className="text-yellow-400" size={18} />;
@@ -11,12 +12,13 @@ const LogIcon = ({ level }) => {
     }
 };
 
-const LevelBadge = ({ level }) => {
-    const styles = {
-        error: "bg-red-500/10 text-red-400 border-red-500/20",
-        warn: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-        info: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-    }[level?.toLowerCase()] || "bg-slate-500/10 text-slate-400 border-slate-500/20";
+const LevelBadge = ({ level }: { level: string }) => {
+    const levelKey = level?.toLowerCase();
+    let styles = "bg-slate-500/10 text-slate-400 border-slate-500/20";
+
+    if (levelKey === 'error') styles = "bg-red-500/10 text-red-400 border-red-500/20";
+    else if (levelKey === 'warn') styles = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+    else if (levelKey === 'info') styles = "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
 
     return (
         <span className={`px-2.5 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 w-fit ${styles}`}>
@@ -26,7 +28,12 @@ const LevelBadge = ({ level }) => {
     );
 };
 
-const LogTable = ({ logs, loading }) => {
+interface LogTableProps {
+    logs: LogData[];
+    loading: boolean;
+}
+
+const LogTable: React.FC<LogTableProps> = ({ logs, loading }) => {
     if (loading) {
         return (
             <div className="w-full h-64 flex items-center justify-center">

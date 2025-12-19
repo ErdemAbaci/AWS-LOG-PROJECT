@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, ShieldAlert, Globe, Server, Search, RefreshCw, Zap } from 'lucide-react';
+import { Activity, ShieldAlert, Globe, Search, RefreshCw, Zap, AlertCircle } from 'lucide-react';
 import StatsCard from './components/StatsCard';
 import LogTable from './components/LogTable';
-import { getLogs, createLog } from './services/api';
+import { getLogs, createLog, LogData } from './services/api';
 
 function App() {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState({ search: '', level: 'all' });
-    const [lastUpdated, setLastUpdated] = useState(new Date());
+    const [logs, setLogs] = useState<LogData[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [filter, setFilter] = useState<{ search: string; level: string }>({ search: '', level: 'all' });
+    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
     // Stats
     const stats = {
@@ -28,8 +28,8 @@ function App() {
             let filteredData = data;
             if (filter.search) {
                 filteredData = data.filter(log =>
-                    log.message?.toLowerCase().includes(filter.search.toLowerCase()) ||
-                    log.ip?.includes(filter.search)
+                    (log.message?.toLowerCase().includes(filter.search.toLowerCase())) ||
+                    (log.ip?.includes(filter.search))
                 );
             }
 

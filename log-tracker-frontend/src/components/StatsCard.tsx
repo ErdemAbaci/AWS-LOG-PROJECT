@@ -1,7 +1,15 @@
-import React from 'react';
+import React, { ElementType } from 'react';
 import { motion } from 'framer-motion';
 
-const StatsCard = ({ title, value, icon: Icon, color = "cyan", delay = 0 }) => {
+interface StatsCardProps {
+    title: string;
+    value: string | number;
+    icon: ElementType;
+    color?: "cyan" | "red" | "yellow" | "purple" | "green";
+    delay?: number;
+}
+
+const StatsCard: React.FC<StatsCardProps> = ({ title, value, icon: Icon, color = "cyan", delay = 0 }) => {
     const colorClasses = {
         cyan: "text-cyan-400 bg-cyan-400/10 border-cyan-400/20",
         red: "text-red-400 bg-red-400/10 border-red-400/20",
