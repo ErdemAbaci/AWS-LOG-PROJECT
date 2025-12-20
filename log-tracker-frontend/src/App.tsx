@@ -3,13 +3,14 @@ import { motion } from 'framer-motion';
 import { Activity, ShieldAlert, Globe, Search, RefreshCw, Zap, AlertCircle } from 'lucide-react';
 import StatsCard from './components/StatsCard';
 import LogTable from './components/LogTable';
-import { getLogs, createLog, LogData } from './services/api';
+import { getLogs, createLog, getCloudWatchLogs, LogData } from './services/api';
 
 function App() {
     const [logs, setLogs] = useState<LogData[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [filter, setFilter] = useState<{ search: string; level: string }>({ search: '', level: 'all' });
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+    const [logSource, setLogSource] = useState<'db' | 'cloudwatch'>('db');
 
     // Stats
     const stats = {
@@ -21,13 +22,49 @@ function App() {
 
     const fetchLogs = async () => {
         try {
-            setLoading(logs.length === 0); // Only show spinner on first load
-            const data = await getLogs(filter.level !== 'all' ? { level: filter.level } : {});
+            setLoading(true);
 
-            // Client-side search filter since backend search param might be limited
+            let data: LogData[] = [];
+
+            if (logSource === 'db') {
+                data = await getLogs(filter.level !== 'all' ? { level: filter.level } : {});
+            } else {
+                const cloudLogs = await getCloudWatchLogs();
+                // Map CloudWatch logs to LogData format
+                data = cloudLogs.map((cl: any) => {
+                    // Start simple level classification based on message content
+                    let level = 'info';
+                    const msg = cl.message?.toLowerCase() || '';
+                    if (msg.includes('error') || msg.includes('fail')) level = 'error';
+                    else if (msg.includes('warn')) level = 'warn';
+
+                    return {
+                        id: cl.id,
+                        message: cl.message,
+                        level: level,
+                        ip: 'AWS CloudWatch',
+                        timestamp: new Date(cl.timestamp).toISOString(),
+                        location: {
+                            country: 'AWS',
+                            region: 'us-east-1', // Default or parse if available
+                            city: 'Data Center',
+                            timezone: 'UTC'
+                        },
+                        s3Url: null
+                    } as LogData;
+                });
+            }
+
+            // Client-side filtering
             let filteredData = data;
+
+            // Apply level filter for CloudWatch logs (DB logs already filtered by API if source is DB, but safe to re-apply / ensure consistency)
+            if (filter.level !== 'all') {
+                filteredData = filteredData.filter(l => l.level?.toLowerCase() === filter.level.toLowerCase());
+            }
+
             if (filter.search) {
-                filteredData = data.filter(log =>
+                filteredData = filteredData.filter(log =>
                     (log.message?.toLowerCase().includes(filter.search.toLowerCase())) ||
                     (log.ip?.includes(filter.search))
                 );
@@ -47,7 +84,7 @@ function App() {
         fetchLogs();
         const interval = setInterval(fetchLogs, 5000);
         return () => clearInterval(interval);
-    }, [filter.level]); // Refetch when level filter changes
+    }, [filter.level, logSource]); // Refetch when level filter or source changes
 
     // Debounced search effect
     useEffect(() => {
@@ -130,6 +167,30 @@ function App() {
                     {/* Toolbar */}
                     <div className="p-6 border-b border-white/5 flex flex-col md:flex-row gap-4 justify-between items-center bg-white/5">
                         <div className="flex items-center gap-4 w-full md:w-auto">
+                            {/* Source Toggle */}
+                            <div className="flex p-1 bg-black/40 rounded-xl border border-white/10">
+                                <button
+                                    onClick={() => setLogSource('db')}
+                                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${logSource === 'db'
+                                            ? 'bg-cyan-500/20 text-cyan-400 shadow-sm'
+                                            : 'text-slate-400 hover:text-slate-200'
+                                        }`}
+                                >
+                                    App Logs
+                                </button>
+                                <button
+                                    onClick={() => setLogSource('cloudwatch')}
+                                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${logSource === 'cloudwatch'
+                                            ? 'bg-cyan-500/20 text-cyan-400 shadow-sm'
+                                            : 'text-slate-400 hover:text-slate-200'
+                                        }`}
+                                >
+                                    CloudWatch
+                                </button>
+                            </div>
+
+                            <div className="w-px h-8 bg-white/10 hidden md:block" />
+
                             <div className="relative group w-full md:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition-colors" size={18} />
                                 <input
